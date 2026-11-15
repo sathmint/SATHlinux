@@ -10,9 +10,17 @@ DISTRO_NAME = "SATH Linux"
 DISTRO_ID = "sath"
 DISTRO_VERSION = "1.0"
 ISO_FILENAME = "SATH-Linux-1.0-amd64.iso"
-WORK_DIR = Path("/tmp/sath_distro_build")
+
+# Перенесли сборку на диск (/var/tmp), чтобы не переполнить оперативную память (/tmp)
+WORK_DIR = Path("/var/tmp/sath_distro_build")
+DEBIAN_MIRROR = "http://debian.org"
+
 USER_NAME = "sath"
 USER_PASSWORD = "123"
+
+# Поставь True, если собираешь образ специально для ПК с видеокартой NVIDIA.
+# Для тестов в виртуальной машине или на Intel/AMD лучше оставить False (сборка пройдет в 2 раза быстрее).
+INCLUDE_NVIDIA = False
 
 ASCII_LOGO = r"""
 ███████╗██╗  ██╗
@@ -58,11 +66,11 @@ def main():
     # 3. Базовая система Debian Sid (исправлен URL зеркала)
     print("\n[2/6] Скачивание базовой системы (Debian Sid)...")
     run_cmd(
-        f"debootstrap --arch=amd64 sid {chroot_dir} http://debian.org"
+        f"debootstrap --arch=amd64 sid {chroot_dir} {DEBIAN_MIRROR}"
     )
 
     # Подключаем репозитории и пробрасываем DNS с хоста
-    sources_list = "deb http://debian.org sid main contrib non-free non-free-firmware\n"
+    sources_list = f"deb {DEBIAN_MIRROR} sid main contrib non-free non-free-firmware\n"
     (chroot_dir / "etc/apt/sources.list").write_text(sources_list)
     shutil.copy("/etc/resolv.conf", chroot_dir / "etc/resolv.conf")
 
@@ -71,23 +79,42 @@ def main():
     policy_rc.write_text("#!/bin/sh\nexit 101\n")
     policy_rc.chmod(0o755)
 
-    # Монтируем системные директории (включая dev/pts)
+    # Монтируем системные директории
     mount_points = ["dev", "dev/pts", "proc", "sys"]
     for mp in mount_points:
         run_cmd(f"mount --bind /{mp} {chroot_dir}/{mp}")
 
     try:
-        # 4. Установка ядра, драйверов, KDE Plasma 6 и локализации
+        # 4. Установка ядра, драйверов, KDE Plasma и локализации
         print("\n[3/6] Установка ядра, KDE Plasma, драйверов и программ...")
-        packages = (
-            "linux-image-amd64 linux-headers-amd64 live-boot systemd-sysv network-manager "
-            "kde-plasma-desktop plasma-workspace-wayland sddm locales "
-            "firefox-esr kitty fastfetch firmware-linux-nonfree "
-            "nvidia-open-kernel-dkms nvidia-driver pipewire-audio sudo nano curl git"
-        )
+        packages = [
+            "linux-image-amd64",
+            "live-boot",
+            "systemd-sysv",
+            "network-manager",
+            "kde-plasma-desktop",
+            "plasma-workspace-wayland",
+            "sddm",
+            "locales",
+            "firefox-esr",
+            "kitty",
+            "fastfetch",
+            "firmware-linux-nonfree",
+            "pipewire-audio",
+            "sudo",
+            "nano",
+            "curl",
+            "git",
+        ]
+
+        if INCLUDE_NVIDIA:
+            packages.extend(["linux-headers-amd64", "nvidia-open-kernel-dkms", "nvidia-driver"])
+
+        packages_str = " ".join(packages)
+
         run_cmd("apt-get update", chroot_dir)
         run_cmd(
-            f"DEBIAN_FRONTEND=noninteractive apt-get install -y {packages}",
+            f"DEBIAN_FRONTEND=noninteractive apt-get install -y {packages_str}",
             chroot_dir,
         )
 
@@ -96,6 +123,7 @@ def main():
             "en_US.UTF-8 UTF-8\nru_RU.UTF-8 UTF-8\n"
         )
         run_cmd("locale-gen", chroot_dir)
+        (chroot_dir / "etc/default/locale").write_text("LANG=ru_RU.UTF-8\n")
 
         # 5. Настройка брендинга, пользователя, автологина и анимаций
         print("\n[4/6] Настройка интерфейса, автологина и логотипа SH...")
@@ -104,9 +132,16 @@ def main():
             f'NAME="{DISTRO_NAME}"\n'
             f"ID={DISTRO_ID}\n"
             f"ID_LIKE=debian\n"
+            f'VERSION_ID="{DISTRO_VERSION}"\n'
         )
-        (chroot_dir / "etc/os-release").write_text(os_release)
-        (chroot_dir / "etc/hostname").write_text(DISTRO_ID)
+        # Удаляем симлинк /etc/os-release, если он есть, и пишем напрямую в /usr/lib/os-release и /etc/os-release
+        etc_os_release = chroot_dir / "etc/os-release"
+        if etc_os_release.is_symlink():
+            etc_os_release.unlink()
+        etc_os_release.write_text(os_release)
+        (chroot_dir / "usr/lib/os-release").write_text(os_release)
+
+        (chroot_dir / "etc/hostname").write_text(DISTRO_ID + "\n")
 
         # Очистка стандартной конфигурации сети, чтобы работал NetworkManager в трее
         (chroot_dir / "etc/network/interfaces").write_text(
@@ -127,7 +162,7 @@ def main():
         # Логотип SH и автозапуск Fastfetch
         user_home = chroot_dir / f"home/{USER_NAME}"
         logo_file = user_home / ".sath_logo.txt"
-        logo_file.write_text(ASCII_LOGO.strip("\n"))
+        logo_file.write_text(ASCII_LOGO.strip("\n") + "\n")
 
         bashrc_addition = (
             f"\n# Приветствие {DISTRO_NAME}\n"
@@ -166,10 +201,14 @@ def main():
     )
 
     print("\n[6/6] Генерация загрузочного ISO-образа SATH Linux...")
+    kernel_params = "boot=live quiet splash"
+    if INCLUDE_NVIDIA:
+        kernel_params += " nvidia-drm.modeset=1 nouveau.modeset=0"
+
     grub_cfg = (
         f"set timeout=5\n"
         f'menuentry "Запустить {DISTRO_NAME} {DISTRO_VERSION} (Live)" {{\n'
-        f"    linux /live/vmlinuz boot=live quiet splash nvidia-drm.modeset=1 nouveau.modeset=0\n"
+        f"    linux /live/vmlinuz {kernel_params}\n"
         f"    initrd /live/initrd\n"
         f"}}\n"
     )
@@ -177,6 +216,9 @@ def main():
 
     output_iso = Path.cwd() / ISO_FILENAME
     run_cmd(f"grub-mkrescue -o {output_iso} {iso_dir}")
+
+    # Удаляем временные файлы сборки, чтобы освободить место на диске
+    shutil.rmtree(WORK_DIR)
 
     print("\n==========================================")
     print(f"ГОТОВО! Ваш дистрибутив собран: {output_iso}")
