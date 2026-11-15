@@ -1,0 +1,20 @@
+name: Build SATH Linux ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Скачать код репозитория
+        uses: actions/checkout@v4
+
+      - name: Собрать SATH Linux ISO
+        run: sudo python3 build_sath.py
+
+      - name: Загрузить готовый ISO для скачивания
+        uses: actions/upload-artifact@v4
+        with:
+          name: SATH-Linux-ISO
+          path: SATH-Linux-1.0-amd64.iso
