@@ -12,14 +12,13 @@ DISTRO_VERSION = "1.0"
 ISO_FILENAME = "SATH-Linux-1.0-amd64.iso"
 
 WORK_DIR = Path("/var/tmp/sath_distro_build")
-# Используем testing (trixie/forky) или sid. Testing стабильнее для сборки KDE + Calamares.
 DEBIAN_SUITE = "testing"
 DEBIAN_MIRROR = "http://debian.org"
 
 LIVE_USER = "sath"
 LIVE_PASSWORD = "123"
 
-# Поставь True, если собираешь образ для ПК с видеокартой NVIDIA
+# Поставь True, если собираешь образ специально для ПК с видеокартой NVIDIA
 INCLUDE_NVIDIA = False
 
 ASCII_LOGO = r"""
@@ -82,7 +81,7 @@ def main():
         run_cmd(f"mount --bind /{mp} {chroot_dir}/{mp}")
 
     try:
-        # 4. Установка ядра, KDE Plasma, установщика Calamares и утилит
+        # 4. Установка ядра, KDE Plasma, Calamares и утилит проверки железа
         print("\n[3/6] Установка ядра, KDE Plasma, Calamares и программ...")
         packages = [
             "linux-image-amd64",
@@ -111,6 +110,14 @@ def main():
             "grub-efi-amd64",
             "os-prober",
             "gparted",
+            # Утилиты для сканирования и оптимизации железа
+            "pciutils",
+            "usbutils",
+            "dmidecode",
+            "inxi",
+            "zram-tools",
+            "power-profiles-daemon",
+            "mesa-vulkan-drivers",
         ]
 
         if INCLUDE_NVIDIA:
@@ -156,7 +163,7 @@ def main():
         run_cmd(f"useradd -m -G sudo -s /bin/bash {LIVE_USER}", chroot_dir)
         run_cmd(f"echo '{LIVE_USER}:{LIVE_PASSWORD}' | chpasswd", chroot_dir)
 
-        # Настройка автологина только для Live-режима (через live-config, чтобы не мешать после установки)
+        # Настройка автологина только для Live-режима
         live_conf_dir = chroot_dir / "etc/live/config.conf.d"
         live_conf_dir.mkdir(parents=True, exist_ok=True)
         (live_conf_dir / "sath-live.conf").write_text(
@@ -165,14 +172,14 @@ def main():
             f'LIVE_HOSTNAME="{DISTRO_ID}"\n'
         )
 
-        # Конфигурация SDDM (сессия Wayland по умолчанию)
+        # Конфигурация SDDM
         sddm_conf_dir = chroot_dir / "etc/sddm.conf.d"
         sddm_conf_dir.mkdir(parents=True, exist_ok=True)
         (sddm_conf_dir / "session.conf").write_text(
             "[General]\nDefaultSession=plasma.desktop\n"
         )
 
-        # Настройка /etc/skel (эти файлы скопируются каждому новому пользователю при установке на диск!)
+        # Настройка /etc/skel (скопируется каждому новому пользователю при установке)
         skel_dir = chroot_dir / "etc/skel"
         (skel_dir / ".sath_logo.txt").write_text(ASCII_LOGO.strip("\n") + "\n")
 
@@ -189,7 +196,7 @@ def main():
             "[Plugins]\nblurEnabled=true\nslideEnabled=true\nwobblywindowsEnabled=true\n"
         )
 
-        # Копируем те же настройки в домашнюю папку Live-пользователя
+        # Копируем настройки в домашнюю папку Live-пользователя
         user_home = chroot_dir / f"home/{LIVE_USER}"
         shutil.copy(skel_dir / ".sath_logo.txt", user_home / ".sath_logo.txt")
         with open(user_home / ".bashrc", "a") as f:
@@ -234,38 +241,23 @@ def main():
             text = text.replace("Debian", DISTRO_NAME)
             calamares_branding.write_text(text)
 
-        run_cmd(f"chown -R {LIVE_USER}:{LIVE_USER} /home/{LIVE_USER}", chroot_dir)
-        run_cmd("apt-get clean", chroot_dir)
-
-    finally:
-        for mp in reversed(mount_points):
-            run_cmd(f"umount -lf {chroot_dir}/{mp}")
-        if policy_rc.exists():
-            policy_rc.unlink()
-
-    # 6. Упаковка системы в SquashFS и создание загрузочного ISO
-    print("\n[5/6] Сжатие файловой системы...")
-    shutil.copy(
-        next((chroot_dir / "boot").glob("vmlinuz-*")), iso_dir / "live/vmlinuz"
-    )
-    shutil.copy(
-        next((chroot_dir / "boot").glob("initrd.img-*")), iso_dir / "live/initrd"
-    )
-    run_cmd(
-        f"mksquashfs {chroot_dir} {iso_dir}/live/filesystem.squashfs -comp zstd -Xcompression-level 6"
-    )
-
-    print("\n[6/6] Генерация загрузочного ISO-образа SATH Linux...")
-    kernel_params = "boot=live components quiet splash"
-    if INCLUDE_NVIDIA:
-        kernel_params += " nvidia-drm.modeset=1 nouveau.modeset=0"
-
-    grub_cfg = (
-        f"set timeout=5\n"
-        f'menuentry "Запустить {DISTRO_NAME} {DISTRO_VERSION} (Live & Установка)" {{\n'
-        f"    linux /live/vmlinuz {kernel_params}\n"
-        f"    initrd /live/initrd\n"
-        f"}}\n"
-    )
-    (iso_dir / "boot/grub/grub.cfg").write_text(grub_cfg)
-
+        # ==========================================
+        # СКРИПТ АВТОПРОВЕРКИ ЖЕЛЕЗА (SATH-HWCHECK)
+        # ==========================================
+        hwcheck_script = chroot_dir / "usr/local/bin/sath-hwcheck"
+        hwcheck_script.write_text(
+            '#!/bin/bash\n'
+            'echo "=== [SATH Linux] Сканирование конфигурации оборудования ==="\n\n'
+            '# 1. Проверка процессора (Intel / AMD)\n'
+            'CPU_VENDOR=$(grep -m 1 "vendor_id" /proc/cpuinfo | awk \'{print $3}\')\n'
+            'echo "[CPU] Производитель: $CPU_VENDOR"\n\n'
+            '# 2. Проверка видеокарты\n'
+            'GPU_INFO=$(lspci | grep -iE "vga|3d|display")\n'
+            'echo "[GPU] Найдено: $GPU_INFO"\n'
+            'if echo "$GPU_INFO" | grep -qi "nvidia"; then\n'
+            '    echo "[GPU] Обнаружена NVIDIA! Рекомендуется включить nvidia-drm.modeset=1"\n'
+            'fi\n\n'
+            '# 3. Проверка батареи (Ноутбук или Десктоп)\n'
+            'if ls /sys/class/power_supply/BAT* 1> /dev/null 2>&1; then\n'
+            '    echo "[POWER] Обнаружена батарея (Ноутбук). Активация профиля энергосбережения..."\n'
+            '    systemctl enable --now power-profiles-daemon 2>/dev/null || true\n'
