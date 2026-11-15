@@ -8,29 +8,29 @@ from pathlib import Path
 # ==========================================
 DISTRO_NAME = "SATH Linux"
 DISTRO_ID = "sath"
-DISTRO_VERSION = "2.0"
-ISO_FILENAME = "SATH-Linux-2.0-amd64.iso"
+DISTRO_VERSION = "2.3"
+ISO_FILENAME = "SATH-Linux-2.3-amd64.iso"
 
 WORK_DIR = Path("/var/tmp/sath_distro_build")
 DEBIAN_SUITE = "sid"
 DEBIAN_MIRROR = "http://debian.org"
 
 LIVE_USER = "sath"
-LIVE_PASSWORD = "123"
+LIVE_PASSWORD = "1"
 
 # Поставь True, если собираешь образ специально под видеокарту NVIDIA (RTX 5060 Ti)
 INCLUDE_NVIDIA = True
 
 # Чистый логотип S (информацию о системе справа нарисует сам fastfetch)
 ASCII_LOGO = r"""
-             10101$201$1101101101101101
-       $20$110110110$2000000000$1101
-    $1101101$2000
-   $110110110110110
-        $2000000$1101101101101
-                   $2000$11011011100
-     01$2000000000$11011011010
-$21$110110110110110110110$2010
+            $1.101101101101101101
+          $1.101$2000000000000$1110'
+        $1/10$2000$1'
+       $1|1011011011.
+          $ 1'10110110110.
+                $2'000$111|
+     $1.101$2000000000$111/
+  $1'1011011011011011001
 """
 
 
