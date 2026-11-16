@@ -22,24 +22,23 @@ LIVE_PASSWORD = "1"
 INCLUDE_NVIDIA = True
 
 # Чистый логотип S (информацию о системе справа нарисует сам fastfetch)
-ASCII_LOGO = r"""
-      _,met$$$$$$$$$$gg.        Sath Linux 
-   ,g$$$$$$$$$$$$$$$$$$$P.      ---------------
- ,g$$P""           """Y$$.".    OS: SATH Linux 2.4 (amd64)
-,$$P'                   `$$$.   Host: SATH Custom Build
-$$P'                            Kernel: 6.x-amd64 (Debian Sid)
-`$$b._                          Uptime: 1 min
-  `"Y$$$$$$$$$$$$$$$gg._        Packages: 1450 (dpkg)
-        `"""""""""Y$$$$$$b.     Shell: bash
-                        `$$b    DE/WM: Glassmorphism UI
-                         ,$$P   Terminal: Sath Term
- ,$$P.                 ,g$$P'   CPU: x86_64
-  `Y$$b.__         __,g$$P'     GPU: NVIDIA / Integrated
-    `"Y$$$$$$$$$$$$$$$P"'       Memory: 1024MiB / 16384MiB
+ASCII_LOGO = r'''
+      _,met$$$$$$$$$$gg.
+   ,g$$$$$$$$$$$$$$$$$$$P.
+ ,g$$P""           """Y$$.".
+,$$P'                   `$$$.
+$$P'
+`$$b._
+  `"Y$$$$$$$$$$$$$$$gg._
+        `"""""""""Y$$$$$$b.
+                        `$$b
+                         ,$$P
+ ,$$P.                 ,g$$P'
+  `Y$$b.__         __,g$$P'
+    `"Y$$$$$$$$$$$$$$$P"'
          `"""""""""'
-                                ███ ███ ███ ███ ███ ███ ███ ███
+'''
 
-"""
 
 
 def run_cmd(cmd, chroot_path=None):
