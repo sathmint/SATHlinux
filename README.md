@@ -1,4 +1,4 @@
-# SATH Linux 🐧
+# Sath Linux 🐧
 
 **SATH Linux** — это кастомный дистрибутив Linux на базе **Debian Testing** с рабочим столом **KDE Plasma (Wayland)**, настроенным терминалом и графическим установщиком.
 
