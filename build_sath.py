@@ -6,7 +6,7 @@ from pathlib import Path
 # ==========================================
 # НАСТРОЙКИ ДИСТРИБУТИВА SATH LINUX
 # ==========================================
-DISTRO_NAME = "SATH Linux"
+DISTRO_NAME = "Sath Linux"
 DISTRO_ID = "sath"
 DISTRO_VERSION = "2.3"
 ISO_FILENAME = "SATH-Linux-2.3-amd64.iso"
