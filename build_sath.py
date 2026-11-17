@@ -3,9 +3,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-# ==========================================
-# НАСТРОЙКИ ДИСТРИБУТИВА SATH LINUX
-# ==========================================
 DISTRO_NAME = "Sath Linux"
 DISTRO_ID = "sath"
 DISTRO_VERSION = "2.3"
@@ -15,13 +12,11 @@ WORK_DIR = Path("/var/tmp/sath_distro_build")
 DEBIAN_SUITE = "sid"
 DEBIAN_MIRROR = "http://debian.org"
 
-LIVE_USER = "sath"
+LIVE_USER = "admin"
 LIVE_PASSWORD = "1"
 
-# Поставь True, если собираешь образ специально под видеокарту NVIDIA (RTX 5060 Ti)
 INCLUDE_NVIDIA = True
 
-# Чистый логотип S (информацию о системе справа нарисует сам fastfetch)
 ASCII_LOGO = r'''
       _,met$$$$$$$$$$gg.
    ,g$$$$$$$$$$$$$$$$$$$P.
@@ -40,9 +35,7 @@ $$P'
 '''
 
 
-
 def run_cmd(cmd, chroot_path=None):
-    """Выполняет системную команду на хосте или внутри собираемой ОС."""
     if chroot_path:
         cmd = f'chroot {chroot_path} /bin/bash -c "{cmd}"'
     print(f"[ВЫПОЛНЕНИЕ]: {cmd}")
@@ -51,20 +44,16 @@ def run_cmd(cmd, chroot_path=None):
 
 def main():
     if os.geteuid() != 0:
-        print(
-            "ОШИБКА: Запустите скрипт через sudo! Пример: sudo python3 build_sath.py"
-        )
+        print("ОШИБКА: Запустите скрипт через sudo! Пример: sudo python3 build_sath.py")
         return
 
     print(f"=== Начинаем сборку {DISTRO_NAME} {DISTRO_VERSION} ===")
 
-    # 1. Установка сборочных утилит на хост-систему
     print("\n[1/6] Установка сборочных утилит на хост...")
     run_cmd(
         "apt-get update && apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools"
     )
 
-    # 2. Подготовка рабочих директорий
     if WORK_DIR.exists():
         shutil.rmtree(WORK_DIR)
     chroot_dir = WORK_DIR / "chroot"
@@ -72,32 +61,23 @@ def main():
     (iso_dir / "live").mkdir(parents=True)
     (iso_dir / "boot/grub").mkdir(parents=True)
 
-    # 3. Базовая система Debian
     print(f"\n[2/6] Скачивание базовой системы ({DEBIAN_SUITE})...")
-    run_cmd(
-        f"debootstrap --arch=amd64 {DEBIAN_SUITE} {chroot_dir} {DEBIAN_MIRROR}"
-    )
+    run_cmd(f"debootstrap --arch=amd64 {DEBIAN_SUITE} {chroot_dir} {DEBIAN_MIRROR}")
 
-    # Подключаем репозитории и пробрасываем DNS с хоста
     sources_list = f"deb {DEBIAN_MIRROR} {DEBIAN_SUITE} main contrib non-free non-free-firmware\n"
     (chroot_dir / "etc/apt/sources.list").write_text(sources_list)
     shutil.copy("/etc/resolv.conf", chroot_dir / "etc/resolv.conf")
 
-    # Запрещаем запуск фоновых служб внутри chroot во время установки пакетов
     policy_rc = chroot_dir / "usr/sbin/policy-rc.d"
     policy_rc.write_text("#!/bin/sh\nexit 101\n")
     policy_rc.chmod(0o755)
 
-    # Монтируем системные директории
     mount_points = ["dev", "dev/pts", "proc", "sys"]
     for mp in mount_points:
         run_cmd(f"mount --bind /{mp} {chroot_dir}/{mp}")
 
     try:
-        # 4. Установка ядра, KDE Plasma 6, драйверов, Steam, Flatpak и Calamares
         print("\n[3/6] Установка ядра, рабочего стола, игр и утилит...")
-
-        # Включаем поддержку 32-битных библиотек (обязательно для Steam)
         run_cmd("dpkg --add-architecture i386", chroot_dir)
 
         packages = [
@@ -107,6 +87,7 @@ def main():
             "systemd-sysv",
             "network-manager",
             "grub-efi-amd64",
+            "grub-pc-bin",
             "os-prober",
             "efibootmgr",
             "locales",
@@ -156,22 +137,15 @@ def main():
             chroot_dir,
         )
 
-        # Подключаем главный репозиторий приложений Flathub
         run_cmd(
             "flatpak remote-add --if-not-exists flathub https://flathub.org",
             chroot_dir,
         )
 
-        # Генерация русской и английской локалей
-        (chroot_dir / "etc/locale.gen").write_text(
-            "en_US.UTF-8 UTF-8\nru_RU.UTF-8 UTF-8\n"
-        )
+        (chroot_dir / "etc/locale.gen").write_text("en_US.UTF-8 UTF-8\nru_RU.UTF-8 UTF-8\n")
         run_cmd("locale-gen", chroot_dir)
 
-        # 5. Настройка брендинга, пользователя, автологина и анимаций
-        print(
-            "\n[4/6] Настройка интерфейса, автологина, логотипа S и Calamares..."
-        )
+        print("\n[4/6] Настройка интерфейса, автологина, логотипа S и Calamares...")
         os_release = (
             f'PRETTY_NAME="{DISTRO_NAME} {DISTRO_VERSION}"\n'
             f'NAME="{DISTRO_NAME}"\n'
@@ -181,44 +155,37 @@ def main():
         (chroot_dir / "etc/os-release").write_text(os_release)
         (chroot_dir / "etc/hostname").write_text(DISTRO_ID)
 
-        # Передаем управление сетью в NetworkManager
-        (chroot_dir / "etc/network/interfaces").write_text(
-            "auto lo\niface lo inet loopback\n"
-        )
+        (chroot_dir / "etc/network/interfaces").write_text("auto lo\niface lo inet loopback\n")
 
-        # Создание Live-пользователя
         run_cmd(f"useradd -m -G sudo -s /bin/bash {LIVE_USER}", chroot_dir)
         run_cmd(f"echo '{LIVE_USER}:{LIVE_PASSWORD}' | chpasswd", chroot_dir)
 
-        # Настройка автологина в SDDM (сразу в сессию Wayland)
+        sudoers_file = chroot_dir / f"etc/sudoers.d/{LIVE_USER}"
+        sudoers_file.write_text(f"{LIVE_USER} ALL=(ALL) NOPASSWD: ALL\n")
+        sudoers_file.chmod(0o440)
+
         sddm_conf_dir = chroot_dir / "etc/sddm.conf.d"
         sddm_conf_dir.mkdir(parents=True, exist_ok=True)
         (sddm_conf_dir / "autologin.conf").write_text(
             f"[Autologin]\nUser={LIVE_USER}\nSession=plasma\n"
         )
 
-        # Сохранение логотипа S и автозапуск Fastfetch (слева S, справа инфо о системе)
         user_home = chroot_dir / f"home/{LIVE_USER}"
         logo_file = user_home / ".sath_logo.txt"
         logo_file.write_text(ASCII_LOGO.strip("\n"))
 
         bashrc_addition = (
-            f"\n# Приветствие {DISTRO_NAME}\n"
-            f"fastfetch --logo ~/.sath_logo.txt --logo-type file --logo-color-1 green --logo-color-2 cyan\n"
+            f"\nfastfetch --logo ~/.sath_logo.txt --logo-type file --logo-color-1 green --logo-color-2 cyan\n"
         )
         with open(user_home / ".bashrc", "a") as f:
             f.write(bashrc_addition)
 
-        # Настройка плавных анимаций окон в KDE Plasma
         kwin_config = user_home / ".config/kwinrc"
         kwin_config.parent.mkdir(parents=True, exist_ok=True)
         kwin_config.write_text(
             "[Plugins]\nblurEnabled=true\nslideEnabled=true\nwobblywindowsEnabled=true\nmagiclampEnabled=true\n"
         )
 
-        # ==========================================
-        # НАСТРОЙКА ГРАФИЧЕСКОГО УСТАНОВЩИКА CALAMARES
-        # ==========================================
         calamares_dir = chroot_dir / "etc/calamares"
         (calamares_dir / "modules").mkdir(parents=True, exist_ok=True)
         (calamares_dir / "branding/sath").mkdir(parents=True, exist_ok=True)
@@ -321,7 +288,6 @@ style:
             chroot_dir,
         )
 
-        # Ярлык установщика на рабочий стол
         desktop_dir = user_home / "Desktop"
         desktop_dir.mkdir(parents=True, exist_ok=True)
         calamares_desktop = f"""[Desktop Entry]
@@ -330,3 +296,41 @@ Version=1.0
 Name=Установить {DISTRO_NAME}
 GenericName=System Installer
 Comment=Установить {DISTRO_NAME} на диск
+Exec=sudo calamares
+Icon=calamares
+Terminal=false
+Categories=System;
+"""
+        desktop_file = desktop_dir / "calamares.desktop"
+        desktop_file.write_text(calamares_desktop)
+        desktop_file.chmod(0o755)
+
+        run_cmd(f"chown -R {LIVE_USER}:{LIVE_USER} /home/{LIVE_USER}", chroot_dir)
+        run_cmd("apt-get clean", chroot_dir)
+        if policy_rc.exists():
+            policy_rc.unlink()
+
+    finally:
+        for mp in reversed(mount_points):
+            subprocess.run(f"umount -lf {chroot_dir}/{mp}", shell=True)
+
+    print("\n[5/6] Упаковка корневой файловой системы в SquashFS...")
+    run_cmd(
+        f"mksquashfs {chroot_dir} {iso_dir}/live/filesystem.squashfs -comp zstd -Xcompression-level 15 -e boot"
+    )
+
+    kernel_path = next((chroot_dir / "boot").glob("vmlinuz-*"))
+    initrd_path = next((chroot_dir / "boot").glob("initrd.img-*"))
+    shutil.copy(kernel_path, iso_dir / "live/vmlinuz")
+    shutil.copy(initrd_path, iso_dir / "live/initrd")
+
+    grub_cfg = f"""set default="0"
+set timeout=5
+
+menuentry "Запустить {DISTRO_NAME} {DISTRO_VERSION} (Live)" {{
+    linux /live/vmlinuz boot=live components quiet splash
+    initrd /live/initrd
+}}
+
+menuentry "Запустить {DISTRO_NAME} {DISTRO_VERSION} (Безопасный режим / nomodeset)" {{
+    linux /live/vmlinuz boot=live components nomodeset
