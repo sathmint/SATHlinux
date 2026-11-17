@@ -32,5 +32,5 @@ qemu-img create -f qcow2 sath_disk.qcow2 20G
 qemu-system-x86_64 -m 4G -enable-kvm -cpu host -smp 2 -vga virtio -hda sath_disk.qcow2 -cdrom SATH-Linux-1.0-amd64.iso -boot d
 ```
 
-* **Логин Live-пользователя:** `sath`
-* **Пароль:** `123`
+* **Логин Live-пользователя:** `admin`
+* **Пароль:** `1`
