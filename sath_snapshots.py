@@ -165,7 +165,9 @@ def setup_snapshots(chroot_dir: Path, run_cmd) -> None:
     drop_in.mkdir(parents=True, exist_ok=True)
     (drop_in / "override.conf").write_text(GRUB_BTRFSD_OVERRIDE)
 
-    (chroot_dir / "etc/apt/apt.conf.d/80sath-snapshot").write_text(APT_HOOK)
+    apt_hook = chroot_dir / "etc/apt/apt.conf.d/80sath-snapshot"
+    apt_hook.parent.mkdir(parents=True, exist_ok=True)
+    apt_hook.write_text(APT_HOOK)
 
     # В chroot запущенного systemd нет, но enable просто создаёт симлинк
     run_cmd("systemctl enable sath-snapshots-init.service", chroot_dir)
