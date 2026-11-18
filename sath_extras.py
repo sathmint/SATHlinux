@@ -19,7 +19,6 @@ EXTRA_PACKAGES = [
     # режимы Daily / Hack
     "python3-pyqt6",
     "nftables",
-    "tor",
 ]
 
 # ------------------------------------------------------------------ Sath Lab
@@ -194,14 +193,12 @@ table inet sath_hack {
 }
 EOF
     systemctl restart NetworkManager
-    systemctl start tor@default 2>/dev/null
     echo hack > "$STATE"
     ;;
   daily)
     nft delete table inet sath_hack 2>/dev/null
     rm -f "$NM_CONF"
     systemctl restart NetworkManager
-    systemctl stop tor@default 2>/dev/null
     echo daily > "$STATE"
     ;;
   *)
@@ -334,9 +331,6 @@ def setup_extras(chroot_dir: Path, run_cmd, live_user: str) -> None:
     put("usr/local/bin/sath-mode-tray", TRAY_SCRIPT, 0o755)
     put("etc/xdg/autostart/sath-mode-tray.desktop", TRAY_DESKTOP)
     put("etc/sudoers.d/sath-mode", MODE_SUDOERS, 0o440)
-
-    # tor не должен стартовать сам: он включается только в режиме Hack
-    run_cmd("systemctl disable tor.service tor@default.service || true", chroot_dir)
 
     # Оформление (логотип, fastfetch, kwin) в /etc/skel, чтобы оно было
     # у пользователя, которого создаст установщик, а не только у live-пользователя
