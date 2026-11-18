@@ -3,6 +3,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from sath_snapshots import SNAPSHOT_PACKAGES, setup_snapshots, setup_calamares_btrfs
+from sath_extras import EXTRA_PACKAGES, setup_extras, setup_calamares_cleanup
+
 DISTRO_NAME = "Sath Linux"
 DISTRO_ID = "sath"
 DISTRO_VERSION = "2.3"
@@ -10,7 +13,7 @@ ISO_FILENAME = "SATH-Linux-2.3-amd64.iso"
 
 WORK_DIR = Path("/var/tmp/sath_distro_build")
 DEBIAN_SUITE = "sid"
-DEBIAN_MIRROR = "http://debian.org"
+DEBIAN_MIRROR = "http://deb.debian.org/debian"
 
 LIVE_USER = "admin"
 LIVE_PASSWORD = "1"
@@ -131,6 +134,8 @@ def main():
                 "nvidia-driver-libs:i386",
             ])
 
+        packages.extend(SNAPSHOT_PACKAGES)
+        packages.extend(EXTRA_PACKAGES)
         run_cmd("apt-get update", chroot_dir)
         run_cmd(
             f"DEBIAN_FRONTEND=noninteractive apt-get install -y {' '.join(packages)}",
@@ -193,6 +198,11 @@ def main():
         settings_conf = """---
 modules-search: [ local ]
 
+instances:
+- id: sath_cleanup
+  module: shellprocess
+  config: shellprocess_sath_cleanup.conf
+
 sequence:
 - show:
   - welcome
@@ -211,6 +221,8 @@ sequence:
   - keyboard
   - localecfg
   - users
+  - removeuser
+  - shellprocess@sath_cleanup
   - displaymanager
   - networkcfg
   - hwclock
@@ -249,6 +261,8 @@ efiBootMgr: "efibootmgr"
 installEFIFallback: true
 """
         (calamares_dir / "modules/bootloader.conf").write_text(bootloader_conf)
+        setup_calamares_btrfs(calamares_dir)
+        setup_calamares_cleanup(calamares_dir, LIVE_USER)
 
         branding_desc = f"""---
 componentName: sath
@@ -305,6 +319,8 @@ Categories=System;
         desktop_file.write_text(calamares_desktop)
         desktop_file.chmod(0o755)
 
+        setup_snapshots(chroot_dir, run_cmd)
+        setup_extras(chroot_dir, run_cmd, LIVE_USER)
         run_cmd(f"chown -R {LIVE_USER}:{LIVE_USER} /home/{LIVE_USER}", chroot_dir)
         run_cmd("apt-get clean", chroot_dir)
         if policy_rc.exists():
@@ -316,7 +332,7 @@ Categories=System;
 
     print("\n[5/6] Упаковка корневой файловой системы в SquashFS...")
     run_cmd(
-        f"mksquashfs {chroot_dir} {iso_dir}/live/filesystem.squashfs -comp zstd -Xcompression-level 15 -e boot"
+        f"mksquashfs {chroot_dir} {iso_dir}/live/filesystem.squashfs -comp zstd -Xcompression-level 15"
     )
 
     kernel_path = next((chroot_dir / "boot").glob("vmlinuz-*"))
@@ -334,3 +350,17 @@ menuentry "Запустить {DISTRO_NAME} {DISTRO_VERSION} (Live)" {{
 
 menuentry "Запустить {DISTRO_NAME} {DISTRO_VERSION} (Безопасный режим / nomodeset)" {{
     linux /live/vmlinuz boot=live components nomodeset
+    initrd /live/initrd
+}}
+"""
+    (iso_dir / "boot/grub/grub.cfg").write_text(grub_cfg)
+
+    print("\n[6/6] Сборка ISO-образа (BIOS + UEFI)...")
+    iso_path = WORK_DIR / ISO_FILENAME
+    run_cmd(f"grub-mkrescue -o {iso_path} {iso_dir}")
+
+    print(f"\n=== Готово! ISO: {iso_path} ===")
+
+
+if __name__ == "__main__":
+    main()
