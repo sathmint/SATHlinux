@@ -83,13 +83,13 @@ def main():
         print("\n[3/6] Установка ядра, рабочего стола, игр и утилит...")
         run_cmd("dpkg --add-architecture i386", chroot_dir)
 
-        packages = [
+                packages = [
             "linux-image-amd64",
             "linux-headers-amd64",
             "live-boot",
             "systemd-sysv",
             "network-manager",
-            "grub-efi-amd64",
+            "grub-efi-amd64-bin",
             "grub-pc-bin",
             "os-prober",
             "efibootmgr",
@@ -109,11 +109,7 @@ def main():
             "plasma-discover-backend-flatpak",
             "firmware-linux-nonfree",
             "pipewire-audio",
-            "steam-installer",
-            "gamemode",
-            "mangohud",
             "vulkan-tools",
-            "libvulkan1:i386",
             "firefox-esr",
             "kitty",
             "fastfetch",
@@ -127,13 +123,13 @@ def main():
         ]
 
         if INCLUDE_NVIDIA:
-            packages.extend(["nvidia-driver", "nvidia-driver-libs:i386"])
+            packages.extend(["nvidia-driver"])
 
         packages.extend(SNAPSHOT_PACKAGES)
         packages.extend(EXTRA_PACKAGES)
         run_cmd("apt-get update", chroot_dir)
         run_cmd(
-            f"DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends {' '.join(packages)}",
+            f"DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends {' '.join(packages)} 2>&1",
             chroot_dir,
         )
 
@@ -145,19 +141,6 @@ def main():
         (chroot_dir / "etc/locale.gen").write_text("en_US.UTF-8 UTF-8\nru_RU.UTF-8 UTF-8\n")
         run_cmd("locale-gen", chroot_dir)
 
-        run_cmd(
-            f"DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends {' '.join(packages)}",
-            chroot_dir,
-        )
-
-
-        run_cmd(
-            "flatpak remote-add --if-not-exists flathub https://flathub.org",
-            chroot_dir,
-        )
-
-        (chroot_dir / "etc/locale.gen").write_text("en_US.UTF-8 UTF-8\nru_RU.UTF-8 UTF-8\n")
-        run_cmd("locale-gen", chroot_dir)
 
         print("\n[4/6] Настройка интерфейса, автологина, логотипа S и Calamares...")
         os_release = (
