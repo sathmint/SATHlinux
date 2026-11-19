@@ -18,7 +18,6 @@ from pathlib import Path
 SNAPSHOT_PACKAGES = [
     "btrfs-progs",
     "snapper",
-    "grub-btrfs",
     "inotify-tools",
 ]
 
