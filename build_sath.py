@@ -12,7 +12,7 @@ DISTRO_VERSION = "2.3"
 ISO_FILENAME = "SATH-Linux-2.3-amd64.iso"
 
 WORK_DIR = Path("/var/tmp/sath_distro_build")
-DEBIAN_SUITE = "sid"
+DEBIAN_SUITE = "trixie"
 DEBIAN_MIRROR = "http://deb.debian.org/debian"
 
 LIVE_USER = "admin"
@@ -100,7 +100,6 @@ def main():
             "nano",
             "btop",
             "kde-plasma-desktop",
-            "plasma-workspace-wayland",
             "sddm",
             "dolphin",
             "spectacle",
