@@ -17,4 +17,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SATH-Linux-ISO
-          path: SATH-Linux-1.0-amd64.iso
+          path: /var/tmp/sath_distro_build/SATH-Linux-2.3-amd64.iso
+
