@@ -107,7 +107,7 @@ def main():
             "kde-plasma-desktop",
             "sddm",
             "dolphin",
-            "spectacle",
+            "kde-spectacle",
             "kate",
             "plasma-discover",
             "flatpak",
@@ -120,11 +120,12 @@ def main():
             "fastfetch",
             "ark",
             "p7zip-full",
-            "unrar-free",
+            "unrar",
             "ffmpeg",
             "gstreamer1.0-libav",
             "fonts-noto-color-emoji",
             "calamares",
+              
         ]
 
         if INCLUDE_NVIDIA:
