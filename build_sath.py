@@ -82,7 +82,7 @@ def main():
     try:
         print("\n[3/6] Установка ядра, рабочего стола, игр и утилит...")
         run_cmd("dpkg --add-architecture i386", chroot_dir)
-            packages = [
+        packages = [
             "linux-image-amd64",
             "linux-headers-amd64",
             "live-boot",
