@@ -127,9 +127,8 @@ def main():
             "calamares",
         ]
 
-        if INCLUDE_NVIDIA:
-            packages.extend([
-                "nvidia-open-kernel-dkms",
+              if INCLUDE_NVIDIA:
+                  packages.extend([
                 "nvidia-driver",
                 "nvidia-driver-libs:i386",
             ])
@@ -138,7 +137,7 @@ def main():
         packages.extend(EXTRA_PACKAGES)
         run_cmd("apt-get update", chroot_dir)
         run_cmd(
-            f"DEBIAN_FRONTEND=noninteractive apt-get install -y {' '.join(packages)}",
+            f"DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends {' '.join(packages)}",
             chroot_dir,
         )
 
