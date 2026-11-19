@@ -41,8 +41,14 @@ $$P'
 def run_cmd(cmd, chroot_path=None):
     if chroot_path:
         cmd = f'chroot {chroot_path} /bin/bash -c "{cmd}"'
-    print(f"[ВЫПОЛНЕНИЕ]: {cmd}")
-    subprocess.run(cmd, shell=True, check=True)
+    print(f"[ВЫПОЛНЕНИЕ]: {cmd}", flush=True)
+    res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if res.stdout:
+        print(res.stdout, flush=True)
+    if res.stderr:
+        print(res.stderr, flush=True)
+    if res.returncode != 0:
+        raise subprocess.CalledProcessError(res.returncode, cmd)
 
 
 def main():
