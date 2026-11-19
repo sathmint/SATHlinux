@@ -127,11 +127,8 @@ def main():
             "calamares",
         ]
 
-              if INCLUDE_NVIDIA:
-                  packages.extend([
-                "nvidia-driver",
-                "nvidia-driver-libs:i386",
-            ])
+        if INCLUDE_NVIDIA:
+            packages.extend(["nvidia-driver", "nvidia-driver-libs:i386"])
 
         packages.extend(SNAPSHOT_PACKAGES)
         packages.extend(EXTRA_PACKAGES)
@@ -140,6 +137,20 @@ def main():
             f"DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends {' '.join(packages)}",
             chroot_dir,
         )
+
+        run_cmd(
+            "flatpak remote-add --if-not-exists flathub https://flathub.org",
+            chroot_dir,
+        )
+
+        (chroot_dir / "etc/locale.gen").write_text("en_US.UTF-8 UTF-8\nru_RU.UTF-8 UTF-8\n")
+        run_cmd("locale-gen", chroot_dir)
+
+        run_cmd(
+            f"DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends {' '.join(packages)}",
+            chroot_dir,
+        )
+
 
         run_cmd(
             "flatpak remote-add --if-not-exists flathub https://flathub.org",
